@@ -64,7 +64,7 @@ jobs:
             echo "$violations"
             echo ""
             echo "Replace with hyphens, colons, commas, or parentheses."
-            echo "See CLAUDE.md formatting rule (strict)."
+            echo "See CONTRIBUTING.md formatting rules."
             exit 1
           fi
           echo "Em-dash check passes."
