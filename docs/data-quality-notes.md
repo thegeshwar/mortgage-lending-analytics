@@ -170,3 +170,20 @@ Initial exempt-field probe assumed loan_costs as the column name; actual field i
 - Whether the rate_spread reporting guardrails (reporting threshold above APOR) warrant a separate is_higher_priced dimension in the marts layer.
 
 Each of these will open as a GitHub Issue when the question is forced by downstream work.
+
+<!-- BEGIN:eda-01-2026-04-19 -->
+## 2026-04-19 | EDA-01 HMDA Schema and Quality
+
+Row counts verified per year: 2022 = 16,099,307, 2023 = 11,564,178, 2024 = 12,229,298.
+
+Column surface union across 2022 to 2024: 99 columns. Columns absent from at least one year: 0.
+
+Mixed-type columns flagged: 21. These require explicit cast rules in staging. See notebook section 3.
+
+Universal Loan Identifier absent from nationwide public LAR in all three years. Decision: downstream loan-grain models must either accept a synthesized row-ordinal key or switch source to the LAR release that preserves ULI.
+
+Exempt-value reporters per year: 2022 = 1,354 LEIs, 2023 = 1,996 LEIs, 2024 = 2,021 LEIs.
+
+Undocumented code-field values found: 0. See notebook section 8 for the full table.
+
+<!-- END:eda-01-2026-04-19 -->
