@@ -119,4 +119,4 @@ Code: [MIT](LICENSE). Data: HMDA and FFIEC Call Reports are public under each ag
 
 ## Contributing
 
-Even for a solo project, every change follows a tracked workflow. See [CONTRIBUTING.md](CONTRIBUTING.md) and the GitHub workflow section of [CLAUDE.md](CLAUDE.md).
+Even for a solo project, every change follows a tracked workflow. See [CONTRIBUTING.md](CONTRIBUTING.md).

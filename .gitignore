@@ -20,8 +20,10 @@ data/processed/**
 *.csv
 !dbt/seeds/*.csv
 
-# Plugin symlinks (remember skill installs a symlink into .claude/)
-.claude/remember/scripts
+# Local-only assistant + session state (never tracked)
+CLAUDE.md
+.claude/
+.remember/
 
 # Secrets
 .env
