@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff pytest
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Pytest
+        run: |
+          if [ -d tests ] && [ "$(ls -A tests 2>/dev/null | grep -v .gitkeep | head -1)" ]; then
+            pytest tests/ -v
+          else
+            echo "No tests yet; skipping pytest"
+          fi
+
+  em-dash-detector:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect em dashes in changed files (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only --diff-filter=ACM "$BASE_SHA" "$HEAD_SHA" | grep -vE '\.(png|jpg|jpeg|gif|pdf|zip|parquet|csv|ipynb)$' || true)
+          if [ -z "$changed" ]; then
+            echo "No text files changed; em-dash check passes."
+            exit 0
+          fi
+          echo "Scanning changed files for em dashes:"
+          echo "$changed"
+          violations=$(echo "$changed" | xargs grep -l $'\xe2\x80\x94' 2>/dev/null || true)
+          if [ -n "$violations" ]; then
+            echo ""
+            echo "BUILD FAILED: em dashes found in:"
+            echo "$violations"
+            echo ""
+            echo "Replace with hyphens, colons, commas, or parentheses."
+            echo "See CLAUDE.md formatting rule (strict)."
+            exit 1
+          fi
+          echo "Em-dash check passes."
+
+      - name: Detect em dashes (push to main)
+        if: github.event_name == 'push'
+        run: |
+          violations=$(grep -rl $'\xe2\x80\x94' --include='*.md' --include='*.py' --include='*.sql' --include='*.yml' --include='*.yaml' --include='*.sh' . 2>/dev/null || true)
+          if [ -n "$violations" ]; then
+            echo "BUILD FAILED: em dashes found:"
+            echo "$violations"
+            exit 1
+          fi
+          echo "Em-dash check passes."
+
+  dbt-parse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if dbt project has models
+        id: dbt_present
+        run: |
+          if [ -f dbt/dbt_project.yml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "dbt project not initialized yet; skipping dbt parse."
+          fi
+
+      - name: Set up Python
+        if: steps.dbt_present.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dbt-core
+        if: steps.dbt_present.outputs.present == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dbt-core>=1.7"
+
+      - name: dbt parse
+        if: steps.dbt_present.outputs.present == 'true'
+        working-directory: dbt
+        run: dbt parse

@@ -1,0 +1,26 @@
+# Ruff config for mortgage-lending-analytics
+
+line-length = 120
+target-version = "py313"
+
+extend-exclude = [
+    ".venv",
+    "data",
+    "dbt/target",
+    "dbt/dbt_packages",
+    "dbt/logs",
+]
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long (handled by line-length above for non-trivial cases)
+    "E402",  # module-level import not at top of file (notebooks often have mid-cell imports)
+]
+
+[lint.per-file-ignores]
+"notebooks/*.ipynb" = [
+    "F401",  # unused imports are common in exploratory notebooks
+    "F841",  # unused variables idem
+    "E402",
+]
