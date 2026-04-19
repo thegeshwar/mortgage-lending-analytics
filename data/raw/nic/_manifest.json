@@ -1,0 +1,54 @@
+{
+  "entries": [
+    {
+      "asset": "attributes_active",
+      "bytes": 1898862,
+      "filename": "CSV_ATTRIBUTES_ACTIVE.zip",
+      "local_path": "data/raw/nic/CSV_ATTRIBUTES_ACTIVE.zip",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "9e17050e9086719fb1f131335e76e500ee571fa44ad0b8947657ad969c4260a1",
+      "source": "FFIEC National Information Center",
+      "source_url": "https://www.ffiec.gov/npw/FinancialReport/DataDownload"
+    },
+    {
+      "asset": "attributes_branches",
+      "bytes": 5369196,
+      "filename": "CSV_ATTRIBUTES_BRANCHES.zip",
+      "local_path": "data/raw/nic/CSV_ATTRIBUTES_BRANCHES.zip",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "b8026dac5a8158ddb895370c56b705c6203799a01b63d94d625c663518f73c6e",
+      "source": "FFIEC National Information Center",
+      "source_url": "https://www.ffiec.gov/npw/FinancialReport/DataDownload"
+    },
+    {
+      "asset": "attributes_closed",
+      "bytes": 12047952,
+      "filename": "CSV_ATTRIBUTES_CLOSED.zip",
+      "local_path": "data/raw/nic/CSV_ATTRIBUTES_CLOSED.zip",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "abc0143a09800aadd8e5e0d34ed6dfec895c906a39e4b4d91d2b823bf0bdb7f9",
+      "source": "FFIEC National Information Center",
+      "source_url": "https://www.ffiec.gov/npw/FinancialReport/DataDownload"
+    },
+    {
+      "asset": "relationships",
+      "bytes": 4746969,
+      "filename": "CSV_RELATIONSHIPS.zip",
+      "local_path": "data/raw/nic/CSV_RELATIONSHIPS.zip",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "7bbd5ebfced4336a76700bceaa9d43c9f8baa8300ea9ec05e9e65a2ca9abff14",
+      "source": "FFIEC National Information Center",
+      "source_url": "https://www.ffiec.gov/npw/FinancialReport/DataDownload"
+    },
+    {
+      "asset": "transformations",
+      "bytes": 627981,
+      "filename": "CSV_TRANSFORMATIONS.zip",
+      "local_path": "data/raw/nic/CSV_TRANSFORMATIONS.zip",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "3db39cde23dc7786c1d2010af826bdc14de38d3380de7eb26a3b9bfa45934d5a",
+      "source": "FFIEC National Information Center",
+      "source_url": "https://www.ffiec.gov/npw/FinancialReport/DataDownload"
+    }
+  ]
+}
