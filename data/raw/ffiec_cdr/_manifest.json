@@ -1,0 +1,136 @@
+{
+  "entries": [
+    {
+      "bytes": 6033014,
+      "filename": "FFIEC CDR Call Bulk All Schedules 03312022.zip",
+      "local_path": "data/raw/ffiec_cdr/20220331/FFIEC CDR Call Bulk All Schedules 03312022.zip",
+      "period": "20220331",
+      "period_display": "03/31/2022",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "a7dd40120655f18ce419429ff50fd676e3829b20d00f4e56231a722fcb3ac23c",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6653642,
+      "filename": "FFIEC CDR Call Bulk All Schedules 06302022.zip",
+      "local_path": "data/raw/ffiec_cdr/20220630/FFIEC CDR Call Bulk All Schedules 06302022.zip",
+      "period": "20220630",
+      "period_display": "06/30/2022",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "27d84f87e00469f3be2ba9b0d38edd613f3732e98adfab42056a218525b58c1c",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6090382,
+      "filename": "FFIEC CDR Call Bulk All Schedules 09302022.zip",
+      "local_path": "data/raw/ffiec_cdr/20220930/FFIEC CDR Call Bulk All Schedules 09302022.zip",
+      "period": "20220930",
+      "period_display": "09/30/2022",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "7c298e0ee4e37a55935b5afc25e2b94c82778f9e0b47f14f75c811fccb08dc7a",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6902729,
+      "filename": "FFIEC CDR Call Bulk All Schedules 12312022.zip",
+      "local_path": "data/raw/ffiec_cdr/20221231/FFIEC CDR Call Bulk All Schedules 12312022.zip",
+      "period": "20221231",
+      "period_display": "12/31/2022",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "dc38d0e1f3963c4faaed8a127fd5347bb0bbef306ae4c7982db25f439e0bf91b",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 5975900,
+      "filename": "FFIEC CDR Call Bulk All Schedules 03312023.zip",
+      "local_path": "data/raw/ffiec_cdr/20230331/FFIEC CDR Call Bulk All Schedules 03312023.zip",
+      "period": "20230331",
+      "period_display": "03/31/2023",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "409262a72c82a9cd772d21d9e8ced80fa0b917e2fe1a17f395369d647c74ece9",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6584955,
+      "filename": "FFIEC CDR Call Bulk All Schedules 06302023.zip",
+      "local_path": "data/raw/ffiec_cdr/20230630/FFIEC CDR Call Bulk All Schedules 06302023.zip",
+      "period": "20230630",
+      "period_display": "06/30/2023",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "a7b925961b81756ab5745d3695a1651ed3c0aefd16a75757b952996b367e632a",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6016896,
+      "filename": "FFIEC CDR Call Bulk All Schedules 09302023.zip",
+      "local_path": "data/raw/ffiec_cdr/20230930/FFIEC CDR Call Bulk All Schedules 09302023.zip",
+      "period": "20230930",
+      "period_display": "09/30/2023",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "9a98f4ba15028ddb0ebed70ce55ea5af18422cae79ab0c5f23194576431cc43d",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6823481,
+      "filename": "FFIEC CDR Call Bulk All Schedules 12312023.zip",
+      "local_path": "data/raw/ffiec_cdr/20231231/FFIEC CDR Call Bulk All Schedules 12312023.zip",
+      "period": "20231231",
+      "period_display": "12/31/2023",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "3b9374b9b9caa62ac7f841d869c2eb0ca9443c926fd502a8437ea674b08fa5e2",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 5772872,
+      "filename": "FFIEC CDR Call Bulk All Schedules 03312024.zip",
+      "local_path": "data/raw/ffiec_cdr/20240331/FFIEC CDR Call Bulk All Schedules 03312024.zip",
+      "period": "20240331",
+      "period_display": "03/31/2024",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "6683b0785143846340920adb038d1fb3cc805bc01eaed7f92bfb005471f08427",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6365063,
+      "filename": "FFIEC CDR Call Bulk All Schedules 06302024.zip",
+      "local_path": "data/raw/ffiec_cdr/20240630/FFIEC CDR Call Bulk All Schedules 06302024.zip",
+      "period": "20240630",
+      "period_display": "06/30/2024",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "f4a1fc0f5f564bd9db8e9884306b8702ac8f83b63c933b61c1d1f7f5ef2142df",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 5840434,
+      "filename": "FFIEC CDR Call Bulk All Schedules 09302024.zip",
+      "local_path": "data/raw/ffiec_cdr/20240930/FFIEC CDR Call Bulk All Schedules 09302024.zip",
+      "period": "20240930",
+      "period_display": "09/30/2024",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "f410d86370a895b193ae66d1960679891ef7a4a365d9f48ae11c8feafe10fc75",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    },
+    {
+      "bytes": 6605571,
+      "filename": "FFIEC CDR Call Bulk All Schedules 12312024.zip",
+      "local_path": "data/raw/ffiec_cdr/20241231/FFIEC CDR Call Bulk All Schedules 12312024.zip",
+      "period": "20241231",
+      "period_display": "12/31/2024",
+      "registered_at_utc": "2026-04-19T19:57:13+00:00",
+      "sha256": "ee564c50df457350aa5133411a8bcee34f7d1f3e30d02922d9e8c7e160f4f27e",
+      "source": "FFIEC CDR Public Data Distribution",
+      "source_url": "https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "entries": [
+    {
+      "asset": "filers",
+      "bytes": 366104,
+      "downloaded_at_utc": "2026-04-19T18:13:57+00:00",
+      "local_path": "data/raw/hmda/2022/2022_public_filers.json",
+      "sha256": "4f52b64eea85e4af88c9a398cb94503253933d5b85cac71db91d70dfcad5f313",
+      "source_url": "https://ffiec.cfpb.gov/v2/reporting/filers/2022",
+      "year": 2022
+    },
+    {
+      "asset": "lar",
+      "bytes": 6107453240,
+      "downloaded_at_utc": "2026-04-19T18:27:37+00:00",
+      "local_path": "data/raw/hmda/2022/2022_public_lar_nationwide.csv",
+      "sha256": "bebcdfb3f9993186a2c6b9a4fba74b6d7c473ea67fed0aa9d16f5410ff035ff0",
+      "source_url": "https://ffiec.cfpb.gov/v2/data-browser-api/view/nationwide/csv?years=2022",
+      "year": 2022
+    },
+    {
+      "asset": "filers",
+      "bytes": 417344,
+      "downloaded_at_utc": "2026-04-19T18:13:58+00:00",
+      "local_path": "data/raw/hmda/2023/2023_public_filers.json",
+      "sha256": "a4940be44bea84883ba23b55f92e9c393a343a33dc9d0d388ce2b999a7709f11",
+      "source_url": "https://ffiec.cfpb.gov/v2/reporting/filers/2023",
+      "year": 2023
+    },
+    {
+      "asset": "lar",
+      "bytes": 4399684763,
+      "downloaded_at_utc": "2026-04-19T18:36:43+00:00",
+      "local_path": "data/raw/hmda/2023/2023_public_lar_nationwide.csv",
+      "sha256": "b2fcebcc952cc25cc133f75912845374f876ce56bd4542b97f44c0cc2d9c5652",
+      "source_url": "https://ffiec.cfpb.gov/v2/data-browser-api/view/nationwide/csv?years=2023",
+      "year": 2023
+    },
+    {
+      "asset": "filers",
+      "bytes": 400084,
+      "downloaded_at_utc": "2026-04-19T18:13:58+00:00",
+      "local_path": "data/raw/hmda/2024/2024_public_filers.json",
+      "sha256": "e223143d4fac4abc0a743e09a6cffa654d63a4cb9b0eacb7d7a5fc14f2e93c85",
+      "source_url": "https://ffiec.cfpb.gov/v2/reporting/filers/2024",
+      "year": 2024
+    },
+    {
+      "asset": "lar",
+      "bytes": 4625391929,
+      "downloaded_at_utc": "2026-04-19T18:46:11+00:00",
+      "local_path": "data/raw/hmda/2024/2024_public_lar_nationwide.csv",
+      "sha256": "44f65f64a016bcc475c8ccf194fb517b2df4b64ba992e4b21b4fd64364443aea",
+      "source_url": "https://ffiec.cfpb.gov/v2/data-browser-api/view/nationwide/csv?years=2024",
+      "year": 2024
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+# Data files (raw/staging/processed are local-only; manifests are committed)
+data/raw/**
+data/staging/**
+data/processed/**
+!data/raw/.gitkeep
+!data/staging/.gitkeep
+!data/processed/.gitkeep
+!data/raw/*/
+!data/raw/*/_manifest.json
+
+# Large/binary data formats (outside dbt/seeds which ARE tracked)
+*.parquet
+*.feather
+*.pkl
+*.sqlite
+*.db
+*.duckdb
+
+# CSVs are gitignored except dbt seeds (small, version-controlled reference data)
+*.csv
+!dbt/seeds/*.csv
+
+# Plugin symlinks (remember skill installs a symlink into .claude/)
+.claude/remember/scripts
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+config.local.*
+profiles.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# BI working files
+*.twb
+*.twbx.bak
+*.pbix.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo

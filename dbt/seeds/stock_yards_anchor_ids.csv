@@ -1,0 +1,3 @@
+entity_name,lei,fdic_cert,rssd,city,state,active,role_in_project,notes
+Stock Yards Bank & Trust Company,4LJGQ9KJ9S0CP4B1FY29,258,317342,Louisville,KY,1,anchor_case_study,HMDA filer 2022 2023 2024 under stable LEI. FDIC BankFind match confirmed.
+Stock Yards Bank & Trust Company,,,1847,Austin,IN,0,legacy_name_collision,FDIC CERT 21645. Inactive. Documented to prevent name-based confusion with the Louisville entity.
