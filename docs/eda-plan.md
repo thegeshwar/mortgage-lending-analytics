@@ -1,13 +1,14 @@
 # Initial Full EDA Plan
 
-Scope of the corporate-grade exploratory data analysis for Milestone 1 closure and Milestone 2 design input. This document is the spec for what the notebooks will produce, the questions each notebook answers, and the artifacts each notebook emits. The earlier /notebooks/01-initial-eda.ipynb was a scratch pass. This plan defines the real deliverable.
+Scope of the exploratory data analysis for Milestone 1 closure and Milestone 2 design input. This document is the spec for what the notebooks will produce, the questions each notebook answers, and the artifacts each notebook emits. The earlier /notebooks/01-initial-eda.ipynb was a scratch pass and has been archived under /notebooks/archive/. This plan defines the real deliverable.
 
 ## Guiding principles
 
+0. **Analyst-first narrative.** Every notebook is written for a human analyst seeing the dataset for the first time. Lead with what an analyst asks first: row counts, column counts, null counts and rates, inferred dtypes, and year-over-year dtype drift. Only then layer in domain-specific checks. Every result has a short narrative cell after it that says what it shows, why it matters, and what it implies for downstream. Section headers are plain English, not database jargon. Full style rules live in /CONTRIBUTING.md under "Notebook style."
 1. Every number reported anywhere in the EDA is reproducible from the raw zips registered in the manifests at data/raw/{hmda,ffiec_cdr,nic}/_manifest.json. No one-off queries, no unsaved cell outputs.
-2. Every finding that affects downstream modeling gets written into /docs/data-quality-notes.md with a date stamp and a decision statement.
+2. Every finding that affects downstream modeling gets written into /docs/data-quality-notes.md with a date stamp and a decision statement. Engineering plumbing (writing those files) lives in helper scripts under /scripts/, not inside the notebook.
 3. Every notebook exports both the executed .ipynb and an HTML render to /notebooks/exports/ so a reviewer can read findings without running anything.
-4. No em dashes anywhere. No fabricated context. SYB is the anchor case study because it is a real HMDA filer with known characteristics, not as a rhetorical device.
+4. No em dashes anywhere. No fabricated context. SYB is the anchor case study because it is a real HMDA filer with known characteristics, not as a rhetorical device. Once invoked in a notebook, it threads through every section that can carry it.
 5. Stock Yards Bank and Trust anchor IDs pinned in /dbt/seeds/stock_yards_anchor_ids.csv: LEI 4LJGQ9KJ9S0CP4B1FY29, FDIC CERT 258, RSSD 317342, Louisville KY.
 
 ## Notebook series
@@ -16,22 +17,24 @@ Four notebooks. Each stands alone with its own imports and data access. Runtime 
 
 ### 01: HMDA Schema and Quality EDA
 
-Goal: profile the shape, completeness, and structural integrity of the HMDA LAR across 2022, 2023, 2024.
+Goal: answer the first-look questions an analyst has about the HMDA LAR across 2022, 2023, 2024. What are we holding, what is in it, where is it missing, where is it inconsistent, and what does that imply for every notebook that runs after.
 
-Sections:
-1. Data presence and manifest read. Row counts per year (verified: 16,099,307 / 11,564,178 / 12,229,298).
-2. Column surface per year. List of all columns present. Year-over-year schema delta (additions, removals, renamings). Flag any field with fewer than 95 percent column-presence across years.
-3. Type inference summary. For each column, the inferred type (int, float, string, mixed). Mixed-type columns flagged for explicit handling in staging.
-4. Null profile. For every column, null count and null rate per year. Sorted by null rate descending.
-5. Exempt-value profile. For numeric-as-string columns eligible for HMDA partial exemption, count of "Exempt" values per year. (First-pass: roughly 285,000 rows with Exempt across rate_spread, interest_rate, origination_charges, debt_to_income_ratio, loan_to_value_ratio, total_loan_costs.)
-6. Composite primary key uniqueness. Assert (lei, activity_year, universal_loan_identifier) is unique per year. Count any violations as defects.
-7. Referential integrity. Confirm every LEI in LAR appears in the filer roster JSON for the same year.
-8. Value-set validation. For each code-encoded field (action_taken, loan_type, loan_purpose, occupancy_type, construction_method, business_or_commercial_purpose, hoepa_status, lien_status, property_type, preapproval), list distinct values and counts per year. Flag any value not documented in the filing instructions.
+Sections (analyst-first order, plain-English headers):
+
+1. **Dataset at a glance.** Rows per year, column count per year, file size per vintage, one short paragraph of macro context (the 2022 to 2024 window spans the post-COVID rate shock). Verified row counts: 16,099,307 (2022) / 11,564,178 (2023) / 12,229,298 (2024).
+2. **Is the schema stable across years?** Column-presence matrix, year-over-year delta. A single line if there is no drift, a table if there is.
+3. **What kinds of values live in each column, and do they drift over time?** Per-column inferred type (int, float, exempt, text, mixed) for each of 2022, 2023, 2024. Side-by-side drift pivot that shows, for example, that `loan_to_value_ratio` moved from 0 percent integer-formatted values in 2022 to roughly 15 percent in 2024. Narrative distinguishes "mixed because HMDA uses `Exempt`/`NA`/`1111` sentinels by design" from "mixed because lender reporting practice is drifting year over year."
+4. **Where is the data actually missing?** Null count and null rate side by side per column per year. Structural multi-slot tails (applicant_race-5, applicant_ethnicity-4, aus-5, etc) are expected and called out as such. The interesting nulls are the 20 to 30 percent null pricing fields (lender_credits, discount_points) and anchor fields with non-trivial null rates.
+5. **How much of the reporter panel is on partial exemption?** Distinct reporters with at least one Exempt value per year (first pass: 1,354 / 1,996 / 2,021 LEIs). Plain-English callout that this is roughly 41 percent of the 2024 panel, and that any pricing-field analysis has to segment full vs partial reporters or systematically under-sample them.
+6. **At what grain is this data, and is the reporter panel stable?** ULI absence across all three vintages, mean rows per LEI, distinct LEI count per year. Observation: 2023 had more reporters than 2022 despite 28 percent less volume. That is the rate-shock signature and informs lender segmentation in notebook 03.
+7. **Do the lenders in the LAR all show up in the filer roster?** Symmetric-difference on LEI sets per year. Orphan-in-LAR (filed without registration) vs orphan-in-roster (registered but did not file). Name any LEI in the orphan-in-LAR set, since those rows will join-null to lender attributes downstream. SYB sanity check that weaves in: SYB volume trajectory (3,982 / 3,498 / 3,447 records) against the national 24 percent volume drop.
+8. **Are the reported codes in the codebook, and do the distributions tell us anything?** Enum-field distributions per year for action_taken, loan_type, loan_purpose, occupancy_type, construction_method, business_or_commercial_purpose, hoepa_status, lien_status, preapproval. Any value not documented in the 2022 to 2024 HMDA filing instructions is a defect. The distribution itself is the analyst finding: origination rate through the rate shock, HOEPA high-cost loan volume year over year, loan_purpose=5 ("other") trajectory.
+9. **Findings to carry forward.** One-per-line plain-English list mapping each finding to the notebook or dbt model it constrains downstream.
 
 Artifacts:
 - /notebooks/exports/01-hmda-schema-and-quality.html
-- /docs/data-dictionary.md updates (field-level type, nullability, code-list references)
-- /docs/data-quality-notes.md updates (any anomaly worth a decision)
+- /docs/data-dictionary.md updates written via `scripts/eda_01_docs.py` (field-level type, nullability, code-list references)
+- /docs/data-quality-notes.md dated entry written via `scripts/eda_01_docs.py` (every finding with a downstream decision implication)
 
 ### 02: HMDA Distributions and Demographics
 

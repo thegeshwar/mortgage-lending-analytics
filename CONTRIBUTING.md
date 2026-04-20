@@ -104,6 +104,50 @@ Never committed. The repo root `.gitignore` excludes `.env`, `credentials.json`,
 - Never commit secrets. `.env`, `credentials.json`, `profiles.yml` are gitignored; if one leaks, rotate the credential immediately and rewrite history.
 - Never use `--no-verify` or `--no-gpg-sign`. If a hook fails, fix the hook or the underlying issue.
 
+## Notebook style (analyst-first, narrative-driven)
+
+Applies to every `notebooks/*.ipynb` in this repo, starting with the four-notebook EDA series defined in `/docs/eda-plan.md`. EDA notebooks are read by a human analyst seeing the dataset for the first time. They are not engineering handoffs. Structure them accordingly.
+
+**Structure**
+
+1. Open with a single "dataset at a glance" cell. Rows, columns, years covered, file size per vintage, one short paragraph of macro context. Not the raw manifest. Not file paths or SHA prefixes.
+2. Lead with the basics a human analyst asks first in this order: row count, column count, null counts and null rates side by side, inferred data types per column per year, and **year-over-year data type drift**. These live on the first page of the notebook, not buried in later sections.
+3. Only after the basics, layer in domain-specific checks (HMDA partial exemption, filer roster alignment, enum distributions, etc). Each domain section opens with one sentence of plain English on what is being checked and why.
+4. Every result cell is followed by a short narrative cell: what the result shows, why it matters, what it implies for downstream modeling. Silent tables fail review.
+5. Non-findings get one line. If schema delta is zero, say "no schema drift across the window" and move on. Do not print empty DataFrames.
+6. Prefer one visualization over five tables for null coverage, dtype drift, or year-over-year volume. A heatmap beats a 30-row pivot.
+7. Anchor case study (Stock Yards Bank and Trust) threads through every section that can carry it. Do not name-drop once and abandon.
+
+**Language**
+
+Section headers are plain English. Examples:
+
+- "Can we uniquely identify a loan?" not "Composite primary key uniqueness"
+- "Do all LAR lenders show up in the filer list?" not "Referential integrity against the filer roster"
+- "Are the reported codes in the codebook?" not "Value-set validation on code-encoded fields"
+
+Domain vocabulary (LEI, HMDA partial exemption, ULI, HOEPA, RSSD, MSA, DTI, LTV) stays as it is. That is the language of this dataset. Narrative cells are short, two or three sentences, lead with the observation, end with the downstream implication.
+
+**What to strip from display tables**
+
+Analyst-facing tables do not include `sha256`, `bytes`, `downloaded_at_utc`, `local_path`, raw SQL aliases, or per-bucket percentages when only the drift is the story. Those stay in the underlying DataFrames for helper scripts to consume.
+
+**Generator and execution**
+
+Notebooks are built from a generator under `scripts/build_{eda_NN}_notebook.py` so the cell sources are diff-reviewable in Python. Regenerate the `.ipynb`, then execute with `jupyter nbconvert --to notebook --execute --inplace`, then export with `--to html` to `notebooks/exports/`. Do not hand-edit the `.ipynb` JSON.
+
+**Engineering plumbing goes in a script**
+
+Writing to `/docs/data-dictionary.md` and `/docs/data-quality-notes.md`, writing auxiliary CSVs, or any other persistence logic belongs in a helper module under `scripts/` (convention: `scripts/eda_NN_docs.py`). The notebook invokes it in one line. The notebook shows findings. The script persists them.
+
+**Definition of Done for an EDA notebook**
+
+- Executes end to end against the registered data and the staging DB without error.
+- HTML export exists in `notebooks/exports/`.
+- Every section has narrative; every finding with a downstream implication lands in `/docs/data-quality-notes.md` with a dated entry.
+- Every field-level observation lands in `/docs/data-dictionary.md`.
+- Self-review confirms every section earns its place, every result has narrative, every displayed table has a reason to be there.
+
 ## Reviewing your own PR
 
 Self-review counts. Before marking a PR ready:
