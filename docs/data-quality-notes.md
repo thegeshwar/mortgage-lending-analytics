@@ -187,3 +187,60 @@ Exempt-value reporters per year: 2022 = 1,354 LEIs, 2023 = 1,996 LEIs, 2024 = 2,
 Undocumented code-field values found: 0. See notebook section 8 for the full table.
 
 <!-- END:eda-01-2026-04-19 -->
+
+<!-- BEGIN:eda-01-2026-04-20 -->
+## 2026-04-20 | EDA-01 HMDA Schema and Quality (analyst-first revision)
+
+### Dataset shape
+Row counts: 2022 = 16,099,307, 2023 = 11,564,178, 2024 = 12,229,298. A 28% drop from 2022 to 2023, soft +5.8% recovery into 2024. This is the post-COVID rate-shock signature and the macro context every downstream HMDA notebook operates within.
+
+Schema: 99 columns across all three years. Columns absent from any year: 0. The 2018 HMDA schema is stable across this window.
+
+### Data type drift (reporting practice, not schema change)
+Several pricing fields show lenders shifting from decimal-formatted reporting to integer-formatted reporting over the three vintages. Downstream models must cast these consistently or year-over-year comparability silently degrades.
+
+| Column | 2022 int% | 2024 int% | Delta |
+| --- | --- | --- | --- |
+| `tract_to_msa_income_percentage` | 4.6 | 100.0 | +95.4 pp |
+| `loan_to_value_ratio` | 0.0 | 14.8 | +14.8 pp |
+| `origination_charges` | 0.0 | 9.4 | +9.4 pp |
+| `lender_credits` | 0.0 | 3.2 | +3.2 pp |
+| `discount_points` | 0.0 | 2.7 | +2.7 pp |
+| `total_loan_costs` | 0.0 | 2.4 | +2.4 pp |
+| `interest_rate` | 0.0 | 1.9 | +1.9 pp |
+| `applicant_age` | 10.3 | 11.9 | +1.6 pp |
+| `income` | 88.7 | 85.5 | +-3.2 pp |
+
+Mixed-type columns flagged in at least one year: 21. Most of these are mixed by design (HMDA uses `Exempt`, `NA`, `1111`/`8888`/`9999` sentinels for not-applicable values). The drift table above isolates the subset where lender reporting practice changed year over year.
+
+### Non-structural null fields worth watching
+
+| Column | 2022 null rate | 2023 null rate | 2024 null rate |
+| --- | --- | --- | --- |
+| `lender_credits` | 29.77% | 29.95% | 30.21% |
+| `discount_points` | 21.11% | 18.75% | 20.08% |
+
+Structural multi-slot fields (applicant_race-5, aus-5, etc) exceeding 99% null are expected and excluded from this list.
+
+### Partial-exemption panel
+Distinct reporters using at least one `Exempt` value per year: 2022 = 1,354 LEIs, 2023 = 1,996 LEIs, 2024 = 2,021 LEIs. The 2022 to 2023 jump (+47%) is a structural shift in how many small reporters exercise partial exemption, likely driven by the rate-shock volume collapse dropping more lenders below the full-reporting threshold. Any pricing analysis downstream must segment full vs partial reporters.
+
+### Reporter grain and panel churn
+ULI absent in all three vintages. Panel: 2022 = 4,480 LEIs across 16,099,307 rows, 2023 = 5,129 LEIs across 11,564,178 rows, 2024 = 4,908 LEIs across 12,229,298 rows. 2023 added 649 LEIs despite 28% less origination volume than 2022, meaning smaller average books per lender. Refi specialists exited, niche/portfolio lenders persisted or entered. Decision: downstream loan-grain models cannot rely on a natural PK from the nationwide LAR. Use a synthetic row-ordinal key or switch source to the LAR release that preserves ULI.
+
+### Filer-roster alignment
+
+| Year | Roster LEIs | LAR LEIs | Orphan in LAR | Orphan in roster |
+| --- | --- | --- | --- | --- |
+| 2022 | 4,483 | 4,480 | 1 | 4 |
+| 2023 | 5,134 | 5,129 | 1 | 6 |
+| 2024 | 4,925 | 4,908 | 0 | 17 |
+
+Orphan-in-LAR LEIs (filed without registration) by year: 2022: 549300SBCJXCPODZN187; 2023: 254900FR7KYE3QFAIX50; 2024: none. These will join-null to any lender attribute (asset size, charter type) downstream unless handled explicitly.
+
+SYB (LEI 4LJGQ9KJ9S0CP4B1FY29) records per year: 2022 = 3,982, 2023 = 3,498, 2024 = 3,447. SYB volume dropped roughly 13% across the window vs the national 24% drop. The anchor case held up better than the market.
+
+### Enum distributions and anomalies
+Undocumented enum values found across 9 code-encoded fields: 0. Observed distribution shifts worth carrying forward: origination rate 52.2/49.4/50.5 percent; HOEPA high-cost loans 8,477/11,114/6,426 (-42% 2023->2024); loan_purpose=5 72,299/55,454/20,446 (-72% across window).
+
+<!-- END:eda-01-2026-04-20 -->
