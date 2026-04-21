@@ -136,32 +136,6 @@ Impact: any older documentation, blog post, or tutorial linking to the S3 paths 
 Decision: scripts/download_hmda.py uses the data-browser API exclusively. The manifest records the full API URL per download so a reproducer knows exactly which endpoint was called.
 Owner: self.
 
-## First EDA pass findings (2026-04-19)
-
-### Row counts per activity year
-- 2022: 16,099,307 rows
-- 2023: 11,564,178 rows (28.2% decline vs 2022, consistent with the rate-cycle compression)
-- 2024: 12,229,298 rows (5.8% recovery vs 2023)
-
-### action_taken distribution
-Origination rate (code 1) is remarkably stable across the three years: 52.2% in 2022, 49.4% in 2023, 50.5% in 2024. Denial rate (code 3) held at 15.5% to 17.6%. Purchased-loan rows (code 6) ran at 9.7% to 10.9%, indicating the secondary-market reporter presence is a first-class concern for any "origination volume" metric (must filter to code 1).
-
-### Lender concentration
-Panel sizes by year: 4,454 / 5,093 / 4,878 (the 2023 peak appears to reflect threshold-driven reporter additions that then thinned in 2024). Top-10 share of originations sits at 20.8% to 22.3% and top-25 at 33.8% to 36.1%. This is materially more diffuse than commonly assumed and supports a peer-group analysis approach rather than a "five giant banks" narrative.
-
-### Stock Yards Bank and Trust case study baseline
-- 2022: 3,982 applications (origination rate 64.6%)
-- 2023: 3,498 applications (origination rate 64.7%)
-- 2024: 3,447 applications (origination rate 65.4%)
-
-SYB's origination rate sits roughly 15 percentage points above the market average (about 50%), consistent with a mid-size regional lender that underwrites a qualified-applicant book rather than a volume-at-all-costs book. This is a cleanly observable pattern in the raw data that the portfolio analysis can build on.
-
-### Exempt-value reporting prevalence (2024)
-Across interest_rate, rate_spread, origination_charges, debt_to_income_ratio, and loan_to_value_ratio, the Exempt value appears in exactly the same ~285,000-row range per field (2.33% of total). The consistent count strongly suggests a fixed cohort of partial-exemption reporters is responsible. Confirms the /docs/data-quality-notes.md earlier decision to preserve Exempt as a distinct category through staging rather than null-impute.
-
-### Field-name correction logged
-Initial exempt-field probe assumed loan_costs as the column name; actual field is total_loan_costs. The HMDA data dictionary uses the total_ prefix for aggregated origination-cost fields. Noted for the field-naming layer of /docs/data-dictionary.md.
-
 ## Open items without decisions yet
 
 - Whether to include the HMDA Transmittal Sheet and Reporter Panel as first-class sources or load them lazily on demand.
@@ -171,25 +145,95 @@ Initial exempt-field probe assumed loan_costs as the column name; actual field i
 
 Each of these will open as a GitHub Issue when the question is forced by downstream work.
 
-<!-- BEGIN:eda-01-2026-04-19 -->
-## 2026-04-19 | EDA-01 HMDA Schema and Quality
+<!-- BEGIN:eda-02-2026-04-21 -->
+## 2026-04-21 | EDA-02 HMDA Distributions and Demographics
 
-Row counts verified per year: 2022 = 16,099,307, 2023 = 11,564,178, 2024 = 12,229,298.
+### Outcome mix (action_taken)
+Origination rate: 2022 = 52.2%, 2023 = 49.4%, 2024 = 50.5%. Denial rate: 2022 = 15.5%, 2023 = 17.6%, 2024 = 17.2%. The origination-rate dip in 2023 and 2 pp denial-rate drift across the window is the rate-shock signature on outcomes. 2023 is not a steady state. Downstream year-over-year cuts on originations must acknowledge the regime shift.
 
-Column surface union across 2022 to 2024: 99 columns. Columns absent from at least one year: 0.
+### Loan size and composition
+Median originated loan amount: 2022 median $235,000, 2023 median $225,000, 2024 median $235,000. The aggregate median rise is partly composition driven: the purpose mix shifted from refi-heavy 2022 to purchase-heavy 2023 and 2024, and purchase loans are larger than refi loans. Within-purpose medians are flatter than the aggregate. Decision: for year-over-year loan-size comparisons, fix loan_purpose before reading. Per-purpose medians are persisted in the notebook.
 
-Mixed-type columns flagged: 21. These require explicit cast rules in staging. See notebook section 3.
+### Income
+Median originated-applicant income: 2022 median $102K, 2023 median $109K, 2024 median $114K (HMDA-reported in thousands of USD, rounded to the nearest thousand). The rise partly tracks purpose-mix shift and affordability squeeze: the applicant cohort that survived 2023 and 2024 skews higher-income than the pre-shock pool. Not a household-income growth signal.
 
-Universal Loan Identifier absent from nationwide public LAR in all three years. Decision: downstream loan-grain models must either accept a synthesized row-ordinal key or switch source to the LAR release that preserves ULI.
+### Pricing (partial-exempt reporters excluded)
+Interest rate: 2022 median 4.75%, 2023 median 6.88%, 2024 median 6.88%. Rate spread: 2022 median 0.35, 2023 median 0.39, 2024 median 0.33. These percentiles drop the partial-exempt panel entirely. From notebook 01, ~41% of 2024 reporters exercise partial exemption on at least one pricing field. Decision: every M3 pricing card must declare the filter and, where the comparison matters, publish the partial-exempt subpanel stat separately.
 
-Exempt-value reporters per year: 2022 = 1,354 LEIs, 2023 = 1,996 LEIs, 2024 = 2,021 LEIs.
+### LTV (numeric) and DTI (bucketed hybrid)
+LTV: 2022 median 79.0%, p95 100.0%, 2023 median 80.0%, p95 100.0%, 2024 median 80.0%, p95 100.0%. Median near the 80% conforming threshold with a heavy P95 tail up to ~100%. DTI: 2022 modal bucket `36%-<50%` (46.9%), 2023 modal bucket `36%-<50%` (49.4%), 2024 modal bucket `36%-<50%` (49.0%). DTI is reported as HMDA category strings at the extremes (<20%, >60%, and three intermediate buckets) and raw integer percentages in the 36 to 49 range. Decision: treat LTV as continuous numeric; treat DTI as categorical in dbt staging and every dashboard card. The `36%-<50%` analyst-facing bucket used in the notebook rolls the integer range.
 
-Undocumented code-field values found: 0. See notebook section 8 for the full table.
+### Demographics (descriptive, HMDA-limited)
+`derived_race` 2024 top buckets: White 56.7%, Race Not Available 26.3%, Black or African American 8.2%, Asian 5.7%, Joint 1.9%. `derived_ethnicity` 2024 top buckets: Not Hispanic or Latino 61.5%, Ethnicity Not Available 25.1%, Hispanic or Latino 11.1%, Joint 2.3%, Free Form Text Only 0.0%. `derived_sex` 2024 top buckets: Male 31.0%, Joint 30.5%, Female 20.4%, Sex Not Available 18.1%. Roughly one in four applicants reports `Race Not Available` and `Sex Not Available`. Decision: every M3 demographic card must publish the not-available share alongside disparity metrics, and every card carries the HMDA-limitation disclaimer inline.
 
-<!-- END:eda-01-2026-04-19 -->
+### Age
+2024 top natural-person buckets: 35-44 21.4%, 45-54 18.5%, 25-34 17.8%, 55-64 14.7%, 65-74 8.7%. The `8888` (non-natural-person) bucket carries ~12% of rows, cross-tracking entity-backed investor lending and business-purpose applications.
 
-<!-- BEGIN:eda-01-2026-04-20 -->
-## 2026-04-20 | EDA-01 HMDA Schema and Quality (analyst-first revision)
+### Denial reasons
+2024 top denial reasons: 1 DTI ratio 32.2%, 3 credit history 26.9%, 4 collateral 12.8%, 7 credit application incomplete 11.9%. Three codes (DTI, credit history, collateral) dominate across every year. Decision: any M3 denial card surfaces all three together. Denial-reason-by-race (2024, 1,000-cell guardrail), top reason per reported race:
+
+- `2 or more minority races`: 1 DTI ratio 34.5%, 3 credit history 32.4%
+- `American Indian or Alaska Native`: 3 credit history 34.6%, 1 DTI ratio 31.4%
+- `Asian`: 1 DTI ratio 42.4%, 3 credit history 16.6%
+- `Black or African American`: 3 credit history 35.2%, 1 DTI ratio 30.9%
+- `Joint`: 3 credit history 32.9%, 1 DTI ratio 28.9%
+- `Native Hawaiian or Other Pacific Islander`: 1 DTI ratio 36.6%, 3 credit history 28.6%
+- `Race Not Available`: 1 DTI ratio 28.2%, 3 credit history 22.3%
+- `White`: 1 DTI ratio 32.9%, 3 credit history 27.2%
+
+### Loan amount outlier enumeration
+Rows dropped by the $1 to $100M loan_amount filter, per year: 2022: 0 null/unparseable, 0 below $1, 186 above $100M (of 8,406,350 originated); 2023: 0 null/unparseable, 0 below $1, 145 above $100M (of 5,710,399 originated); 2024: 0 null/unparseable, 0 below $1, 178 above $100M (of 6,176,052 originated). The above-$100M tail is a handful of fat-finger jumbo entries per year; below-$1 is effectively zero. The filter is a hygiene cut, not a scope restriction.
+
+### Joint vs individual applicant outcomes (2024)
+Origination rate and median originated loan amount by `derived_sex` bucket, 2024 application base:
+
+- `Male`: 3,786,329 applications, origination rate 53.2%, median originated loan amount $225,000
+- `Joint`: 3,727,440 applications, origination rate 62.8%, median originated loan amount $275,000
+- `Female`: 2,495,380 applications, origination rate 51.9%, median originated loan amount $195,000
+- `Sex Not Available`: 2,220,149 applications, origination rate 23.8%, median originated loan amount $235,000
+
+Joint applicants are roughly a third of the 2024 application pool and originate at a higher rate than individual male or individual female applicants. Single-applicant cuts drop this cohort and the lost volume is material. Any M3 card that disaggregates by sex must include Joint or caveat its absence.
+
+### HOEPA high-cost share by derived_race (2024)
+Picks up the EDA-01 section 8 forward-flag. HOEPA code 1 share of originated loans per race bucket, 500-origination guardrail:
+
+- `Free Form Text Only`: 0.2% of 852 originated (2 high-cost)
+- `Race Not Available`: 0.1% of 1,022,229 originated (1,258 high-cost)
+- `American Indian or Alaska Native`: 0.1% of 36,694 originated (36 high-cost)
+- `Black or African American`: 0.1% of 449,581 originated (431 high-cost)
+- `White`: 0.1% of 4,106,510 originated (3,562 high-cost)
+- `Native Hawaiian or Other Pacific Islander`: 0.1% of 12,007 originated (9 high-cost)
+- `2 or more minority races`: 0.1% of 12,631 originated (8 high-cost)
+- `Asian`: 0.0% of 390,343 originated (182 high-cost)
+- `Joint`: 0.0% of 145,205 originated (49 high-cost)
+
+Directional disparity signal only. Market-wide HOEPA high-cost share in 2024 is ~0.1% of originations; the per-bucket denominators are too small to anchor a headline metric. HMDA does not capture the credit-risk variables that drive HOEPA triggers. Flagged in the M3 fair-lending dashboard as a secondary metric with the HMDA-limitation disclaimer.
+
+### SYB anchor
+SYB origination rate by year: 2022 = 64.6%, 2023 = 64.7%, 2024 = 65.4%. Stable ~15 pp above market origination rate across the window. First quantitative signature of the SYB conservative-community-bank posture that threads through M3.
+
+SYB 2024 per-purpose median loan amount vs national market:
+
+- `1 home purchase`: SYB median $205,000 (n=1,147) vs market median $305,000 (n=3,517,189)
+- `2 home improvement`: SYB median $65,000 (n=396) vs market median $75,000 (n=591,506)
+- `31 refinancing`: SYB median $155,000 (n=359) vs market median $245,000 (n=697,755)
+- `4 other purpose`: SYB median $85,000 (n=315) vs market median $75,000 (n=598,926)
+- `32 cash-out refi`: SYB median $170,000 (n=38) vs market median $185,000 (n=768,011)
+
+SYB medians sit below the national medians across every major purpose line, consistent with a Louisville-scaled community-bank book. Peer group for SYB loan-size benchmarks should be Kentucky community banks of comparable asset size, not the national HMDA aggregate.
+
+SYB 2024 top denial reasons (action_taken = 3, SYB-specific narrative context; denominator ~730 is below the 1,000 cross-tab guardrail):
+
+- 1 DTI ratio: 39.0% (286 of 734 SYB denials)
+- 3 credit history: 36.1% (265 of 734 SYB denials)
+- 4 collateral: 7.9% (58 of 734 SYB denials)
+
+SYB denial mix concentrates harder on DTI (~39%) and credit history (~36%) than the national pattern (~32% and ~27% respectively); collateral and other reasons sit below their national shares. A conservative community-bank underwriting funnel: when SYB denies, it is almost always for the two cleanest reasons.
+
+<!-- END:eda-02-2026-04-21 -->
+
+<!-- BEGIN:eda-01-2026-04-21 -->
+## 2026-04-21 | EDA-01 HMDA Schema and Quality (analyst-first revision)
 
 ### Dataset shape
 Row counts: 2022 = 16,099,307, 2023 = 11,564,178, 2024 = 12,229,298. A 28% drop from 2022 to 2023, soft +5.8% recovery into 2024. This is the post-COVID rate-shock signature and the macro context every downstream HMDA notebook operates within.
@@ -241,47 +285,6 @@ Orphan-in-LAR LEIs (filed without registration) by year: 2022: 549300SBCJXCPODZN
 SYB (LEI 4LJGQ9KJ9S0CP4B1FY29) records per year: 2022 = 3,982, 2023 = 3,498, 2024 = 3,447. SYB volume dropped roughly 13% across the window vs the national 24% drop. The anchor case held up better than the market.
 
 ### Enum distributions and anomalies
-Undocumented enum values found across 9 code-encoded fields: 0. Observed distribution shifts worth carrying forward: origination rate 52.2/49.4/50.5 percent; HOEPA high-cost loans 8,477/11,114/6,426 (-42% 2023->2024); loan_purpose=5 72,299/55,454/20,446 (-72% across window).
+Undocumented enum values found across 9 code-encoded fields: 0. Observed distribution shifts worth carrying forward: origination rate 52.2/49.4/50.5 percent; HOEPA high-cost loans 8,477/11,114/6,426 (-42% 2023->2024); loan_purpose=5 ('purpose not applicable') 72,299/55,454/20,446 (-72% across window, tracking preapproval and purchased-loan contraction not an originated-loan mix shift).
 
-<!-- END:eda-01-2026-04-20 -->
-
-<!-- BEGIN:eda-02-2026-04-21 -->
-## 2026-04-21 | EDA-02 HMDA Distributions and Demographics
-
-### Outcome mix (action_taken)
-Origination rate: 2022 = 52.2%, 2023 = 49.4%, 2024 = 50.5%. Denial rate: 2022 = 15.5%, 2023 = 17.6%, 2024 = 17.2%. The origination-rate dip in 2023 and 2 pp denial-rate drift across the window is the rate-shock signature on outcomes. 2023 is not a steady state. Downstream year-over-year cuts on originations must acknowledge the regime shift.
-
-### Loan size and composition
-Median originated loan amount: 2022 median $235,000, 2023 median $225,000, 2024 median $235,000. The aggregate median rise is partly composition driven: the purpose mix shifted from refi-heavy 2022 to purchase-heavy 2023 and 2024, and purchase loans are larger than refi loans. Within-purpose medians are flatter than the aggregate. Decision: for year-over-year loan-size comparisons, fix loan_purpose before reading. Per-purpose medians are persisted in the notebook.
-
-### Income
-Median originated-applicant income: 2022 median $102K, 2023 median $109K, 2024 median $114K (HMDA-reported in thousands of USD, rounded to the nearest thousand). The rise partly tracks purpose-mix shift and affordability squeeze: the applicant cohort that survived 2023 and 2024 skews higher-income than the pre-shock pool. Not a household-income growth signal.
-
-### Pricing (partial-exempt reporters excluded)
-Interest rate: 2022 median 4.75%, 2023 median 6.88%, 2024 median 6.88%. Rate spread: 2022 median 0.35, 2023 median 0.39, 2024 median 0.33. These percentiles drop the partial-exempt panel entirely. From notebook 01, ~41% of 2024 reporters exercise partial exemption on at least one pricing field. Decision: every M3 pricing card must declare the filter and, where the comparison matters, publish the partial-exempt subpanel stat separately.
-
-### LTV (numeric) and DTI (bucketed hybrid)
-LTV: 2022 median 79.0%, p95 100.0%, 2023 median 80.0%, p95 100.0%, 2024 median 80.0%, p95 100.0%. Median near the 80% conforming threshold with a heavy P95 tail up to ~100%. DTI: 2022 modal bucket `36%-<50%` (46.9%), 2023 modal bucket `36%-<50%` (49.4%), 2024 modal bucket `36%-<50%` (49.0%). DTI is reported as HMDA category strings at the extremes (<20%, >60%, and three intermediate buckets) and raw integer percentages in the 36 to 49 range. Decision: treat LTV as continuous numeric; treat DTI as categorical in dbt staging and every dashboard card. The `36%-<50%` analyst-facing bucket used in the notebook rolls the integer range.
-
-### Demographics (descriptive, HMDA-limited)
-`derived_race` 2024 top buckets: White 56.7%, Race Not Available 26.3%, Black or African American 8.2%, Asian 5.7%, Joint 1.9%. `derived_ethnicity` 2024 top buckets: Not Hispanic or Latino 61.5%, Ethnicity Not Available 25.1%, Hispanic or Latino 11.1%, Joint 2.3%, Free Form Text Only 0.0%. `derived_sex` 2024 top buckets: Male 31.0%, Joint 30.5%, Female 20.4%, Sex Not Available 18.1%. Roughly one in four applicants reports `Race Not Available` and `Sex Not Available`. Decision: every M3 demographic card must publish the not-available share alongside disparity metrics, and every card carries the HMDA-limitation disclaimer inline.
-
-### Age
-2024 top natural-person buckets: 35-44 21.4%, 45-54 18.5%, 25-34 17.8%, 55-64 14.7%, 65-74 8.7%. The `8888` (non-natural-person) bucket carries ~12% of rows, cross-tracking entity-backed investor lending and business-purpose applications.
-
-### Denial reasons
-2024 top denial reasons: 1 DTI ratio 32.2%, 3 credit history 26.9%, 4 collateral 12.8%, 7 credit application incomplete 11.9%. Three codes (DTI, credit history, collateral) dominate across every year. Decision: any M3 denial card surfaces all three together. Denial-reason-by-race (2024, 1,000-cell guardrail), top reason per reported race:
-
-- `2 or more minority races`: 1 DTI ratio 34.5%, 3 credit history 32.4%
-- `American Indian or Alaska Native`: 3 credit history 34.6%, 1 DTI ratio 31.4%
-- `Asian`: 1 DTI ratio 42.4%, 3 credit history 16.6%
-- `Black or African American`: 3 credit history 35.2%, 1 DTI ratio 30.9%
-- `Joint`: 3 credit history 32.9%, 1 DTI ratio 28.9%
-- `Native Hawaiian or Other Pacific Islander`: 1 DTI ratio 36.6%, 3 credit history 28.6%
-- `Race Not Available`: 1 DTI ratio 28.2%, 3 credit history 22.3%
-- `White`: 1 DTI ratio 32.9%, 3 credit history 27.2%
-
-### SYB anchor
-SYB origination rate by year: 2022 = 64.6%, 2023 = 64.7%, 2024 = 65.4%. Stable ~15 pp above market origination rate across the window. First quantitative signature of the SYB conservative-community-bank posture that threads through M3.
-
-<!-- END:eda-02-2026-04-21 -->
+<!-- END:eda-01-2026-04-21 -->
