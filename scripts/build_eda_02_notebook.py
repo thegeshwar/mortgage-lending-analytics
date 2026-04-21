@@ -439,6 +439,7 @@ CELLS: list[dict] = [
         )
 
         loan_amount_rows = []
+        loan_amount_outliers = []
         for year in YEARS:
             df = con.execute(
                 f"WITH t AS ("
@@ -450,8 +451,33 @@ CELLS: list[dict] = [
             ).fetchdf()
             df["year"] = year
             loan_amount_rows.append(df)
+
+            outlier_row = con.execute(
+                f"WITH t AS ("
+                f"  SELECT {numeric_expr('loan_amount')} AS la "
+                f"  FROM {TABLES[year]} WHERE action_taken = '1'"
+                f") "
+                f"SELECT "
+                f"  SUM(CASE WHEN la IS NULL THEN 1 ELSE 0 END) AS null_or_unparseable, "
+                f"  SUM(CASE WHEN la < {OUTLIER_BOTTOM} THEN 1 ELSE 0 END) AS below_1_dollar, "
+                f"  SUM(CASE WHEN la > {OUTLIER_TOP} THEN 1 ELSE 0 END) AS above_100m, "
+                f"  COUNT(*) AS total_originated "
+                f"FROM t"
+            ).fetchdf()
+            outlier_row["year"] = year
+            loan_amount_outliers.append(outlier_row)
         loan_amount_df = pd.concat(loan_amount_rows, ignore_index=True).set_index("year")
+        loan_amount_outlier_df = (
+            pd.concat(loan_amount_outliers, ignore_index=True).set_index("year")
+        )
         loan_amount_df
+        """
+    ),
+    code(
+        """
+        # Outlier enumeration. The $1 to $100M filter is deliberately loose; the
+        # counts below are what the filter drops, not an indictment of the data.
+        loan_amount_outlier_df
         """
     ),
     code(
@@ -490,6 +516,8 @@ CELLS: list[dict] = [
         """
         **What this shows.** Overall median originated loan amount was $235k in 2022, dipped to $225k in 2023, returned to $235k in 2024. Roughly flat aggregate, but that stability hides a meaningful per-purpose story: home-purchase median sat around $295k to $305k and drifted up; refinance median collapsed from $195k in 2022 to $155k in 2023 as the refi book compressed, then jumped to $245k in 2024 as a smaller, higher-equity refi cohort came through; cash-out refi median drifted down from $225k to $185k. Home improvement held at $75k every year. P95 stayed near $755k across the window.
 
+        Outlier filter: the `loan_amount_outlier_df` table above shows how many rows the $1 to $100M filter drops each year. In practice this is a thin upper tail (a few rows above $100M per year, the handful of fat-finger jumbo entries) and effectively no rows below $1. The kept set is the full usable origination population.
+
         **Why it matters.** The flat aggregate median hides a mix-shift composition change underneath. The refi swing (195 to 155 to 245) is the sharpest per-purpose signal in the window and tells the rate-shock story better than any aggregate stat: the 2024 refi book is smaller and higher-balance because the only borrowers refinancing at 7 percent are those with substantial equity or specific need. Always fix purpose before comparing years on loan amount.
         """
     ),
@@ -509,6 +537,50 @@ CELLS: list[dict] = [
         ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=9)
         plt.tight_layout()
         plt.show()
+        """
+    ),
+    code(
+        """
+        # SYB loan-amount anchor: per-purpose medians for 2024, vs market.
+        syb_la_rows = []
+        for year in YEARS:
+            df = con.execute(
+                f"WITH t AS ("
+                f"  SELECT loan_purpose AS lp, {numeric_expr('loan_amount')} AS la "
+                f"  FROM {TABLES[year]} "
+                f"  WHERE action_taken = '1' AND lei = ?"
+                f") "
+                f"SELECT lp, "
+                f"  ROUND(quantile_cont(la, 0.50), 0) AS syb_p50, "
+                f"  COUNT(*) AS syb_n "
+                f"FROM t "
+                f"WHERE la IS NOT NULL AND la BETWEEN {OUTLIER_BOTTOM} AND {OUTLIER_TOP} "
+                f"GROUP BY lp",
+                [SYB_LEI],
+            ).fetchdf()
+            df["year"] = year
+            syb_la_rows.append(df)
+        syb_la_df = pd.concat(syb_la_rows, ignore_index=True)
+        syb_la_df["loan_purpose"] = syb_la_df["lp"].map(LOAN_PURPOSE_LABELS).fillna(syb_la_df["lp"])
+
+        # Join market p50 from la_purpose_df for a side-by-side read in 2024.
+        market_2024 = (
+            la_purpose_df[la_purpose_df["year"] == 2024][["lp", "p50", "n"]]
+            .rename(columns={"p50": "market_p50", "n": "market_n"})
+        )
+        syb_vs_market = (
+            syb_la_df[syb_la_df["year"] == 2024]
+            .merge(market_2024, on="lp", how="left")
+        )
+        syb_vs_market = syb_vs_market[
+            ["loan_purpose", "syb_p50", "syb_n", "market_p50", "market_n"]
+        ].sort_values("syb_n", ascending=False).reset_index(drop=True)
+        syb_vs_market
+        """
+    ),
+    md(
+        """
+        **SYB anchor read.** Stock Yards' 2024 originated book skews materially smaller than the national book on every purpose line. Within home purchase (the dominant bucket for SYB as for the market), SYB's median is noticeably below the national home-purchase median, consistent with a Louisville-centric community bank pricing against its regional housing market rather than coastal metros. Refinance and cash-out refi medians sit below the national medians too. The per-purpose `syb_n` column also tells the lender-mix story: SYB's originated volume is heavily weighted to home purchase, with thin refinance and cash-out refi counts, matching the expected conservative community-bank posture. Downstream, SYB's peer group for loan-size benchmarks should be Kentucky community banks of comparable asset size, not the national HMDA aggregate.
         """
     ),
     md(
@@ -710,7 +782,7 @@ CELLS: list[dict] = [
     ),
     md(
         """
-        **What this shows.** Median LTV sits near 80 percent across the window, the classical conforming threshold. P95 LTV around 97 to 100 percent, the FHA/VA high-LTV tail. DTI distribution concentrates in the 36 to 50 bucket every year, with a meaningful 50 to 60 tail. The Exempt share tracks the partial-exempt reporter panel (see section 5 of notebook 01, ~41 percent of 2024 reporters).
+        **What this shows.** Median LTV sits near 80 percent across the window, the classical conforming threshold. P75 climbs from 90 in 2022 to 95 in 2023 and 2024, and P95 pins at 100 every year: a hard ceiling at the FHA/VA high-LTV line rather than a continuous upper tail. DTI distribution concentrates in the 36 to 50 bucket every year, with a meaningful 50 to 60 tail. The Exempt share tracks the partial-exempt reporter panel (see section 5 of notebook 01, ~41 percent of 2024 reporters).
 
         **Why it matters.** LTV is numerically clean and usable as a continuous variable in downstream models. DTI is not: the hybrid bucket/int encoding forces categorical treatment in any dashboard card. The 80 percent median LTV cluster is a reporting-threshold artifact (loans above 80 require private mortgage insurance, so lenders structure to that line) and will visibly spike in any histogram.
         """
@@ -766,9 +838,43 @@ CELLS: list[dict] = [
         """
         **What this shows.** White applicants are roughly 57 percent of the applicant pool in 2024, with "Race Not Available" near 26 percent (HMDA allows applicants to decline or leave unanswered). Black or African American applicants sit around 8 percent, Asian near 5 to 6 percent, and Joint around 2 percent. Ethnicity mirrors the pattern, with Not Hispanic or Latino the dominant reported category and a large Not Available slice.
 
-        Sex distribution runs roughly 43 percent male, 26 percent female, 22 percent joint, with the remainder in Not Available or Not Applicable. The Joint share is the important reminder that household-level borrowing is common and single-applicant analysis loses a fifth of the book.
+        Sex distribution in 2024: Male 31.0 percent, Joint 30.5 percent, Female 20.4 percent, Sex Not Available 18.1 percent. Male and Joint are effectively tied as the largest buckets, and combined they account for more than 60 percent of applications. Joint is the important reminder that household-level borrowing is common: a single-applicant analysis loses roughly a third of the book, not a fifth.
 
-        **Why it matters.** Any disparity analysis must publish the `Race Not Available` and `Sex Not Available` shares alongside results. Around one in four applicants did not provide demographic detail, and ignoring that cohort inflates apparent disparity on the remainder. M3 dashboards will hard-code both the HMDA-limitation disclaimer and the "not available" share into any demographic card.
+        **Why it matters.** Any disparity analysis must publish the `Race Not Available` and `Sex Not Available` shares alongside results. Around one in four applicants did not provide race detail and nearly one in five did not provide sex detail; ignoring that cohort inflates apparent disparity on the remainder. M3 dashboards will hard-code both the HMDA-limitation disclaimer and the "not available" share into any demographic card.
+        """
+    ),
+    code(
+        """
+        # Joint vs individual applicant outcome cut. Origination rate and median
+        # loan amount by derived_sex bucket, for 2024 only. Aliased as `taken`
+        # because `at` is a reserved word in DuckDB.
+        year = 2024
+        joint_cut = con.execute(
+            f"WITH t AS ("
+            f"  SELECT derived_sex AS sex, action_taken AS taken, "
+            f"         {numeric_expr('loan_amount')} AS la "
+            f"  FROM {TABLES[year]}"
+            f") "
+            f"SELECT sex, "
+            f"  COUNT(*) AS applications, "
+            f"  SUM(CASE WHEN taken = '1' THEN 1 ELSE 0 END) AS originated, "
+            f"  ROUND(quantile_cont(la, 0.50) FILTER "
+            f"        (WHERE taken = '1' AND la BETWEEN {OUTLIER_BOTTOM} AND {OUTLIER_TOP}), 0) "
+            f"    AS median_loan_amount "
+            f"FROM t GROUP BY sex"
+        ).fetchdf()
+        joint_cut["origination_rate"] = (
+            joint_cut["originated"] / joint_cut["applications"]
+        ).round(4)
+        joint_cut = joint_cut.sort_values("applications", ascending=False).reset_index(drop=True)
+        joint_cut
+        """
+    ),
+    md(
+        """
+        **What this shows (joint vs individual).** Joint applicants originate at a higher rate than individual male or individual female applicants in 2024, and carry a meaningfully larger median loan amount. Two-income households clear underwriting more often, for more money. The "Sex Not Available" bucket has the lowest origination rate, consistent with its mix of purchased-loan and preapproval rows where the outcome is not an underwriting decision on a natural-person applicant.
+
+        **Why it matters.** A single-applicant fair-lending cut that drops Joint loses the highest-outcome and largest-ticket third of the book. Any M3 card that breaks down outcomes by sex must either include Joint as its own bucket or explicitly caveat that the cut is single-applicant only.
         """
     ),
     md(
@@ -900,6 +1006,65 @@ CELLS: list[dict] = [
         **Why it matters.** The finding is the rank order stability, not any specific cell. In any M3 fair-lending card, always attach the denial count alongside the percentage so readers can see the denominator. And always publish the HMDA-limitation disclaimer on the same card.
         """
     ),
+    code(
+        """
+        # HOEPA high-cost share by derived_race, 2024, picking up the EDA-01
+        # section 8 forward-flag. HOEPA code 1 = high-cost. Base: originated
+        # rows (action_taken = 1), because HOEPA status is assigned at
+        # origination.
+        year = 2024
+        hoepa_race = con.execute(
+            f"SELECT derived_race AS race, "
+            f"  COUNT(*) AS originated, "
+            f"  SUM(CASE WHEN hoepa_status = '1' THEN 1 ELSE 0 END) AS high_cost "
+            f"FROM {TABLES[year]} "
+            f"WHERE action_taken = '1' "
+            f"GROUP BY derived_race"
+        ).fetchdf()
+        hoepa_race["high_cost_share"] = (
+            hoepa_race["high_cost"] / hoepa_race["originated"]
+        ).round(5)
+        # Guardrail: drop rows with fewer than 500 originations, since HOEPA
+        # high-cost volume is tiny (6,426 total in 2024) and low-denominator
+        # cells will drive spurious disparity readings.
+        hoepa_race = hoepa_race[hoepa_race["originated"] >= 500].copy()
+        hoepa_race = hoepa_race.sort_values("high_cost_share", ascending=False).reset_index(drop=True)
+        hoepa_race
+        """
+    ),
+    md(
+        """
+        **What this shows (HOEPA by derived_race, 2024).** HOEPA high-cost share of originated loans is vanishingly small across every race bucket (total 6,426 high-cost loans against ~6.2M originations in 2024, ~0.10 percent market-wide). Ranking by per-bucket share surfaces a small directional pattern: American Indian or Alaska Native applicants (0.10%), Black or African American applicants (0.10%), and Race Not Available (0.12%) carry a higher high-cost share than White applicants (0.09%) or Asian applicants (0.05%). The Free Form Text Only bucket has the highest rate but the smallest denominator (under 1,000 originations) and should be read as noise, not signal. Read the finding as "the subprime retrenchment EDA-01 flagged in aggregate leaves a directional demographic skew" rather than as a quantitative disparity signal: the per-bucket high-cost counts are in the hundreds or low thousands, differences between groups are in single basis points, and HMDA does not capture the credit-risk variables that drive HOEPA triggers.
+
+        **Why it matters.** Picks up the EDA-01 HOEPA forward-flag and closes it: the cross exists, the demographic pattern is directional not quantitative, and the M3 fair-lending dashboard treats HOEPA as a flagged-but-not-headline metric. The volume is too small to anchor any dashboard card on its own.
+        """
+    ),
+    code(
+        """
+        # SYB denial-reason anchor for 2024. How does Stock Yards' denial mix
+        # compare to the market's DTI/credit/collateral ranking? Base: SYB's
+        # denied rows (action_taken = 3) in 2024.
+        year = 2024
+        syb_denial = con.execute(
+            f'SELECT "denial_reason-1" AS reason, COUNT(*) AS n '
+            f"FROM {TABLES[year]} "
+            f"WHERE action_taken = '3' AND lei = ? "
+            f'GROUP BY "denial_reason-1"',
+            [SYB_LEI],
+        ).fetchdf()
+        total_syb_denials = int(syb_denial["n"].sum())
+        syb_denial["share"] = (syb_denial["n"] / total_syb_denials).round(4)
+        syb_denial["reason_label"] = syb_denial["reason"].map(DENIAL_REASON_LABELS).fillna(syb_denial["reason"])
+        syb_denial = syb_denial.sort_values("share", ascending=False).reset_index(drop=True)
+        syb_denial = syb_denial[["reason_label", "n", "share"]]
+        syb_denial
+        """
+    ),
+    md(
+        """
+        **SYB anchor read (denials).** SYB denied roughly 730 applications in 2024 (action_taken=3 within the 3,447-application book, consistent with the ~21 percent denial rate from section 1). The reason mix is more concentrated than the national pattern, not less: DTI ratio (~39%) and credit history (~36%) together account for roughly three-quarters of SYB denials, against roughly 59 percent for those two reasons nationally. Collateral sits around 8 percent at SYB vs ~13 percent nationally. That is the analytical fingerprint of a conservative community-bank book: when SYB denies, it is almost always for the two cleanest underwriting reasons (DTI or credit), with a thin tail of everything else. The small denominator (~730) falls below the national cross-tab guardrail (1,000), so this cut is SYB-specific narrative context rather than an input to disparity analysis.
+        """
+    ),
     md(
         """
         ## 12. Findings to carry forward
@@ -912,8 +1077,12 @@ CELLS: list[dict] = [
         - **Business-purpose is a small but meaningful slice.** 6 to 7 percent of HMDA applications across the window. Consumer-lending cuts filter it out; lender-class segmentation uses it.
         - **Demographic disclosure gaps are material.** Roughly one in four applicants falls in `Race Not Available` or `Sex Not Available`. Any disparity analysis must publish the gap rate alongside the result.
         - **Denial-reason mix concentrates on three codes.** DTI, credit history, collateral. Headlines on any single code in isolation are misleading; always surface the rank.
-        - **Sample-size guardrails are real.** Denial-reason-by-demographic cross-tabs need a minimum-cell threshold (this notebook uses 1,000). Without it, tiny cells drive spurious disparity readings.
+        - **Sample-size guardrails are real.** Denial-reason-by-demographic cross-tabs need a minimum-cell threshold (this notebook uses 1,000; HOEPA-by-race uses 500 given the tiny population). Without them, low-denominator cells drive spurious disparity readings.
+        - **Joint applicants are a third of the book, not a fifth.** Joint applicants in 2024 account for ~30 percent of applications, originate at a higher rate than individual male or individual female applicants, and carry a larger median loan amount. Any single-applicant-only demographic cut must disclose it is dropping ~30 percent of the book.
+        - **HOEPA flag picked up from EDA-01.** HOEPA high-cost originations by derived_race (2024, 500-origination guardrail) show a directional disparity signal, not a quantitative one: the per-bucket denominators are too small and HMDA does not capture the underlying credit-risk variables. Flagged, not headlined.
         - **SYB outperforms on origination rate.** Stock Yards originates ~65 percent of applications every year, ~15 points above market. Stable through the shock. First quantitative evidence of the SYB anchor as a conservative community-bank posture.
+        - **SYB loan-amount book is Louisville-scaled.** SYB's 2024 home-purchase median sits below the national home-purchase median; refi and cash-out refi medians run lower too. Peer group for loan-size benchmarks should be Kentucky community banks of comparable asset size, not the national HMDA aggregate.
+        - **SYB denial mix concentrates harder on DTI and credit than the national pattern.** DTI (~39%) plus credit history (~36%) account for ~75% of SYB's 2024 denials, against ~59% for those two reasons nationally. Collateral and "other" sit below their national shares. Consistent with a conservative community-bank underwriting funnel that denies almost exclusively for the two cleanest reasons. Denominator (~730) is below the 1,000 cross-tab guardrail, so this is SYB narrative context not a disparity input.
         """
     ),
     md(
@@ -930,6 +1099,7 @@ CELLS: list[dict] = [
             loan_purpose_share=loan_purpose_share,
             loan_amount_df=loan_amount_df,
             la_purpose_pivot=la_purpose_pivot,
+            loan_amount_outlier_df=loan_amount_outlier_df,
             income_df=income_df,
             pricing_df=pricing_df,
             ltv_df=ltv_df,
@@ -941,6 +1111,10 @@ CELLS: list[dict] = [
             denial_share=denial_share,
             denial_by_race=share_masked,
             syb_outcome_df=syb_outcome_df,
+            syb_vs_market=syb_vs_market,
+            joint_cut=joint_cut,
+            hoepa_race=hoepa_race,
+            syb_denial=syb_denial,
             years=YEARS,
             repo_root=REPO_ROOT,
         )

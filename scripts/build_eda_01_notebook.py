@@ -719,12 +719,12 @@ CELLS: list[dict] = [
     ),
     md(
         """
-        **What this shows (hoepa_status).** Code 1 is a high-cost loan under HOEPA: 8,477 (2022), 11,114 (2023), 6,426 (2024). The 2024 number is a 42 percent drop from 2023. Tiny in absolute share (under 0.1 percent of volume), but a real subprime-retrenchment signal. Flag for notebook 02 to cross with demographics.
+        **What this shows (hoepa_status).** Code 1 is a high-cost loan under HOEPA: 8,477 (2022), 11,114 (2023), 6,426 (2024). The 2024 number is a 42 percent drop from 2023. Tiny in absolute share (under 0.1 percent of volume), but a real subprime-retrenchment signal. Notebook 02 section 11 picks this up as a HOEPA-by-derived_race cut with a sample-size guardrail.
         """
     ),
     code(
         """
-        # loan_purpose trajectory: "other" bucket behavior.
+        # loan_purpose trajectory: "purpose not applicable" bucket behavior.
         lp = code_df[code_df["field"] == "loan_purpose"].copy()
         lp_pivot = lp.pivot(index="value", columns="year", values="count").fillna(0).astype(int)
         lp_pivot.index.name = "loan_purpose"
@@ -733,7 +733,7 @@ CELLS: list[dict] = [
     ),
     md(
         """
-        **What this shows (loan_purpose).** Code 5 ("other") is 72,299 (2022), 55,454 (2023), 20,446 (2024). That is a 72 percent collapse across the window. Could be reclassification, could be an actual business shift. Flag for investigation in notebook 02 before any portfolio mix reporting that sums across `loan_purpose`.
+        **What this shows (loan_purpose).** Code 5 is "purpose not applicable" (per HMDA filing instructions; code 4 is "other purpose"). Code 5 counts: 72,299 (2022), 55,454 (2023), 20,446 (2024), a 72 percent collapse across the window. Purpose-not-applicable rows attach almost entirely to non-originated rows (preapproval requests and purchased-loan rows where purpose is not meaningful), so this collapse tracks the upstream contraction of those outcome types rather than any originated-loan mix shift. Within originated loans, purpose=5 stays below 0.1 percent every year (confirmed in notebook 02 section 2). No portfolio-mix remediation required downstream, but the label matters: any dashboard that aggregates loan_purpose must treat code 5 as structural not-applicable, not as a residual "other" category.
         """
     ),
     md(
@@ -751,7 +751,7 @@ CELLS: list[dict] = [
         - **No natural loan-grain PK.** ULI stripped from all three vintages. Downstream loan-grain models need a synthetic row-ordinal key or a ULI-preserving source.
         - **Panel churn is real.** 2023 added 649 LEIs despite much lower volume. Lender segmentation in notebook 03 must treat the panel as dynamic, not static.
         - **Orphan-in-LAR LEIs.** A handful of LEIs filed without being in the roster in 2022 and 2023. Enumerated above. Needs explicit handling in the lender-enriched join.
-        - **Enum distribution shifts worth carrying.** Origination rate dipped during the shock then partially recovered. HOEPA high-cost volume fell 42 percent from 2023 to 2024. `loan_purpose=5` ("other") fell 72 percent across the window.
+        - **Enum distribution shifts worth carrying.** Origination rate dipped during the shock then partially recovered. HOEPA high-cost volume fell 42 percent from 2023 to 2024. `loan_purpose=5` ("purpose not applicable") fell 72 percent across the window, tracking the contraction of preapproval and purchased-loan rows rather than any originated-loan mix shift.
         - **SYB outperformed the market.** Anchor volume down 13 percent vs the national 24 percent. Meaningful signal for the SYB-anchored dashboard in M3.
         """
     ),
@@ -768,7 +768,9 @@ CELLS: list[dict] = [
             "narrative": (
                 "origination rate 52.2/49.4/50.5 percent; "
                 "HOEPA high-cost loans 8,477/11,114/6,426 (-42% 2023->2024); "
-                "loan_purpose=5 72,299/55,454/20,446 (-72% across window)"
+                "loan_purpose=5 ('purpose not applicable') 72,299/55,454/20,446 "
+                "(-72% across window, tracking preapproval and purchased-loan "
+                "contraction not an originated-loan mix shift)"
             ),
         }
 

@@ -41,6 +41,7 @@ def _build_dq_block(
     loan_purpose_share: pd.DataFrame,
     loan_amount_df: pd.DataFrame,
     la_purpose_pivot: pd.DataFrame,
+    loan_amount_outlier_df: pd.DataFrame,
     income_df: pd.DataFrame,
     pricing_df: pd.DataFrame,
     ltv_df: pd.DataFrame,
@@ -52,6 +53,10 @@ def _build_dq_block(
     denial_share: pd.DataFrame,
     denial_by_race: pd.DataFrame,
     syb_outcome_df: pd.DataFrame,
+    syb_vs_market: pd.DataFrame,
+    joint_cut: pd.DataFrame,
+    hoepa_race: pd.DataFrame,
+    syb_denial: pd.DataFrame,
     years: list[int],
     run_date: str,
 ) -> str:
@@ -127,6 +132,82 @@ def _build_dq_block(
             by_race_lines.append(f"- `{race}`: {ranked}")
     by_race_block = "\n".join(by_race_lines) if by_race_lines else "- insufficient cells above guardrail"
 
+    # Outlier enumeration line for loan_amount.
+    la_outlier_line = "; ".join(
+        (
+            f"{int(r['year'])}: "
+            f"{_fmt_int(r['null_or_unparseable'])} null/unparseable, "
+            f"{_fmt_int(r['below_1_dollar'])} below $1, "
+            f"{_fmt_int(r['above_100m'])} above $100M "
+            f"(of {_fmt_int(r['total_originated'])} originated)"
+        )
+        for r in loan_amount_outlier_df.reset_index().to_dict("records")
+    )
+
+    # SYB loan-amount anchor: per-purpose 2024 SYB median vs market median.
+    syb_vs_market_lines: list[str] = []
+    if not syb_vs_market.empty:
+        for _, r in syb_vs_market.iterrows():
+            if pd.isna(r.get("market_p50")) or pd.isna(r.get("syb_p50")):
+                continue
+            syb_vs_market_lines.append(
+                f"- `{r['loan_purpose']}`: SYB median ${_fmt_int(r['syb_p50'])} "
+                f"(n={_fmt_int(r['syb_n'])}) vs market median ${_fmt_int(r['market_p50'])} "
+                f"(n={_fmt_int(r['market_n'])})"
+            )
+    syb_vs_market_block = (
+        "\n".join(syb_vs_market_lines)
+        if syb_vs_market_lines
+        else "- SYB per-purpose cuts unavailable"
+    )
+
+    # Joint-vs-individual applicant outcome cut (2024).
+    joint_lines: list[str] = []
+    if not joint_cut.empty:
+        for _, r in joint_cut.iterrows():
+            if r["applications"] < 1000:
+                continue
+            median_la = r.get("median_loan_amount")
+            la_txt = (
+                f"${_fmt_int(median_la)}"
+                if pd.notna(median_la)
+                else "n/a"
+            )
+            joint_lines.append(
+                f"- `{r['sex']}`: {_fmt_int(r['applications'])} applications, "
+                f"origination rate {_pct(r['origination_rate'])}, "
+                f"median originated loan amount {la_txt}"
+            )
+    joint_block = (
+        "\n".join(joint_lines) if joint_lines else "- joint-cut unavailable"
+    )
+
+    # HOEPA high-cost share by derived_race (2024).
+    hoepa_lines: list[str] = []
+    if not hoepa_race.empty:
+        for _, r in hoepa_race.iterrows():
+            hoepa_lines.append(
+                f"- `{r['race']}`: {_pct(r['high_cost_share'])} of "
+                f"{_fmt_int(r['originated'])} originated "
+                f"({_fmt_int(r['high_cost'])} high-cost)"
+            )
+    hoepa_block = (
+        "\n".join(hoepa_lines) if hoepa_lines else "- no cells above 500-origination guardrail"
+    )
+
+    # SYB denial-reason mix (2024).
+    syb_denial_lines: list[str] = []
+    if not syb_denial.empty:
+        total_syb_denials = int(syb_denial["n"].sum())
+        top3 = syb_denial.head(3)
+        syb_denial_lines = [
+            f"- {r['reason_label']}: {_pct(r['share'])} ({_fmt_int(r['n'])} of {_fmt_int(total_syb_denials)} SYB denials)"
+            for _, r in top3.iterrows()
+        ]
+    syb_denial_block = (
+        "\n".join(syb_denial_lines) if syb_denial_lines else "- SYB denial mix unavailable"
+    )
+
     return "\n".join(
         [
             begin,
@@ -193,11 +274,83 @@ def _build_dq_block(
             "",
             by_race_block,
             "",
+            "### Loan amount outlier enumeration",
+            f"Rows dropped by the $1 to $100M loan_amount filter, per year: "
+            f"{la_outlier_line}. The above-$100M tail is a handful of fat-"
+            "finger jumbo entries per year; below-$1 is effectively zero. "
+            "The filter is a hygiene cut, not a scope restriction.",
+            "",
+            "### Joint vs individual applicant outcomes (2024)",
+            (
+                "Origination rate and median originated loan amount by "
+                "`derived_sex` bucket, 2024 application base:"
+            ),
+            "",
+            joint_block,
+            "",
+            (
+                "Joint applicants are roughly a third of the 2024 application "
+                "pool and originate at a higher rate than individual male or "
+                "individual female applicants. Single-applicant cuts drop "
+                "this cohort and the lost volume is material. Any M3 card "
+                "that disaggregates by sex must include Joint or caveat its "
+                "absence."
+            ),
+            "",
+            "### HOEPA high-cost share by derived_race (2024)",
+            (
+                "Picks up the EDA-01 section 8 forward-flag. HOEPA code 1 "
+                "share of originated loans per race bucket, 500-origination "
+                "guardrail:"
+            ),
+            "",
+            hoepa_block,
+            "",
+            (
+                "Directional disparity signal only. Market-wide HOEPA high-"
+                "cost share in 2024 is ~0.1% of originations; the per-bucket "
+                "denominators are too small to anchor a headline metric. "
+                "HMDA does not capture the credit-risk variables that drive "
+                "HOEPA triggers. Flagged in the M3 fair-lending dashboard as "
+                "a secondary metric with the HMDA-limitation disclaimer."
+            ),
+            "",
             "### SYB anchor",
             f"SYB origination rate by year: {syb_line}. Stable ~15 pp above "
             "market origination rate across the window. First quantitative "
             "signature of the SYB conservative-community-bank posture that "
             "threads through M3.",
+            "",
+            (
+                "SYB 2024 per-purpose median loan amount vs national market:"
+            ),
+            "",
+            syb_vs_market_block,
+            "",
+            (
+                "SYB medians sit below the national medians across every "
+                "major purpose line, consistent with a Louisville-scaled "
+                "community-bank book. Peer group for SYB loan-size benchmarks "
+                "should be Kentucky community banks of comparable asset "
+                "size, not the national HMDA aggregate."
+            ),
+            "",
+            (
+                "SYB 2024 top denial reasons (action_taken = 3, SYB-specific "
+                "narrative context; denominator ~730 is below the 1,000 "
+                "cross-tab guardrail):"
+            ),
+            "",
+            syb_denial_block,
+            "",
+            (
+                "SYB denial mix concentrates harder on DTI (~39%) and "
+                "credit history (~36%) than the national pattern (~32% and "
+                "~27% respectively); collateral and other reasons sit below "
+                "their national shares. A conservative community-bank "
+                "underwriting funnel: when SYB denies, it is almost always "
+                "for the two cleanest reasons."
+            ),
             "",
             end,
         ]
@@ -399,6 +552,7 @@ def persist_findings(
     loan_purpose_share: pd.DataFrame,
     loan_amount_df: pd.DataFrame,
     la_purpose_pivot: pd.DataFrame,
+    loan_amount_outlier_df: pd.DataFrame,
     income_df: pd.DataFrame,
     pricing_df: pd.DataFrame,
     ltv_df: pd.DataFrame,
@@ -410,6 +564,10 @@ def persist_findings(
     denial_share: pd.DataFrame,
     denial_by_race: pd.DataFrame,
     syb_outcome_df: pd.DataFrame,
+    syb_vs_market: pd.DataFrame,
+    joint_cut: pd.DataFrame,
+    hoepa_race: pd.DataFrame,
+    syb_denial: pd.DataFrame,
     years: list[int],
     repo_root: Path,
 ) -> tuple[Path, Path, Path]:
@@ -424,6 +582,7 @@ def persist_findings(
         loan_purpose_share=loan_purpose_share,
         loan_amount_df=loan_amount_df,
         la_purpose_pivot=la_purpose_pivot,
+        loan_amount_outlier_df=loan_amount_outlier_df,
         income_df=income_df,
         pricing_df=pricing_df,
         ltv_df=ltv_df,
@@ -435,6 +594,10 @@ def persist_findings(
         denial_share=denial_share,
         denial_by_race=denial_by_race,
         syb_outcome_df=syb_outcome_df,
+        syb_vs_market=syb_vs_market,
+        joint_cut=joint_cut,
+        hoepa_race=hoepa_race,
+        syb_denial=syb_denial,
         years=years,
         run_date=run_date,
     )
