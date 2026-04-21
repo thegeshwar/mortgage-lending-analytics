@@ -16,6 +16,9 @@ import pandas as pd
 METHOD_BEGIN = "<!-- BEGIN:eda-02-metrics -->"
 METHOD_END = "<!-- END:eda-02-metrics -->"
 
+DICT_BEGIN = "<!-- BEGIN:eda-02-field-notes -->"
+DICT_END = "<!-- END:eda-02-field-notes -->"
+
 
 def _splice_block(text: str, begin: str, end: str, new_block: str) -> str:
     pattern = re.compile(re.escape(begin) + r".*?" + re.escape(end), re.DOTALL)
@@ -201,6 +204,141 @@ def _build_dq_block(
     )
 
 
+def _build_dict_block(
+    *,
+    loan_amount_df: pd.DataFrame,
+    income_df: pd.DataFrame,
+    ltv_df: pd.DataFrame,
+    race_share: pd.DataFrame,
+    sex_share: pd.DataFrame,
+    run_date: str,
+) -> str:
+    ltv_p50_2024 = ltv_df.loc[2024, "p50"]
+    ltv_p95_2024 = ltv_df.loc[2024, "p95"]
+    loan_p50_2024 = int(loan_amount_df.loc[2024, "p50"])
+    loan_p95_2024 = int(loan_amount_df.loc[2024, "p95"])
+    income_p50_2024 = int(income_df.loc[2024, "p50"])
+    income_p95_2024 = int(income_df.loc[2024, "p95"])
+
+    race_not_avail = race_share.loc["Race Not Available", 2024] if "Race Not Available" in race_share.index else 0.0
+    sex_not_avail = sex_share.loc["Sex Not Available", 2024] if "Sex Not Available" in sex_share.index else 0.0
+
+    rows = [
+        "| Column | Encoding | Treatment | EDA-02 observation |",
+        "| --- | --- | --- | --- |",
+        (
+            "| `loan_amount` | numeric float, reported at the midpoint of the "
+            "nearest $10,000 interval | continuous | outlier bounds $1 to "
+            f"$100M used in percentile math; 2024 P50 ${loan_p50_2024:,}, "
+            f"P95 ${loan_p95_2024:,} |"
+        ),
+        (
+            "| `income` | integer, reported in thousands of USD rounded to "
+            "the nearest thousand (value `65` = $65,000) | continuous | "
+            "outlier bounds $1K to $10M; not-applicable on purchased loans, "
+            "non-natural-person applicants, HOEPA-specific fields; 2024 P50 "
+            f"${income_p50_2024}K, P95 ${income_p95_2024}K |"
+        ),
+        (
+            "| `rate_spread` | numeric float, APR over APOR benchmark, plus "
+            "`Exempt` and `NA` sentinels | continuous with filter | pricing "
+            "cuts must exclude `Exempt` rows; from EDA-01, ~41% of 2024 "
+            "reporters use partial exemption, so pricing is full-reporter-"
+            "biased. Every dashboard card using this metric must declare the "
+            "filter. |"
+        ),
+        (
+            "| `interest_rate` | numeric float, contract note rate, plus "
+            "`Exempt` and `NA` sentinels | continuous with filter | same "
+            "partial-exempt treatment as `rate_spread`; 2024 median 6.88%, "
+            "P95 10.25% |"
+        ),
+        (
+            "| `loan_to_value_ratio` | numeric float, full precision | "
+            f"continuous | clean numeric; 2024 P50 {ltv_p50_2024:.1f}%, P95 "
+            f"{ltv_p95_2024:.1f}%. Heavy clustering at 80% (conforming "
+            "threshold) is real, not a data issue. |"
+        ),
+        (
+            "| `debt_to_income_ratio` | **hybrid**: bucketed strings at "
+            "the extremes (`<20%`, `20%-<30%`, `30%-<36%`, `50%-60%`, "
+            "`>60%`) and raw integer percentages in the 36 to 49 range, "
+            "plus `NA` and `Exempt` | **categorical only** | do not attempt "
+            "continuous treatment; the integer-range subset cannot be "
+            "concatenated with bucketed strings. EDA-02 rolls the integer "
+            "range into an analyst-facing `36%-<50%` bucket for display. |"
+        ),
+        (
+            "| `applicant_age` | HMDA age buckets (`<25`, `25-34`, `35-44`, "
+            "`45-54`, `55-64`, `65-74`, `>74`) plus sentinel `8888` | "
+            "categorical | `8888` is the non-natural-person bucket "
+            "(~12% of 2024 rows), cross-tracks entity-backed investor "
+            "lending and `business_or_commercial_purpose = 1`. Exclude "
+            "from natural-person age distributions. |"
+        ),
+        (
+            "| `denial_reason-1` | code-encoded, meaningful only when "
+            "`action_taken = 3`; sentinel `10` (not applicable) dominates "
+            "elsewhere; `1111` marks exempt | categorical with filter | "
+            "filter to denied rows before any distribution. Three codes "
+            "account for the bulk of denials in 2024: DTI ratio (32%), "
+            "credit history (27%), collateral (13%). |"
+        ),
+        (
+            "| `business_or_commercial_purpose` | codes `1` (primarily "
+            "business), `2` (not primarily business), `1111` (not applicable) "
+            "| categorical | business-purpose share 4.7% (2022) to 5.3% "
+            "(2024), drifting up. Consumer-lending cuts filter to `= 2`; "
+            "lender-class segmentation uses the `= 1` share as an investor-"
+            "tilt signal. |"
+        ),
+        (
+            "| `derived_dwelling_category` | text categorical, four levels: "
+            "Single Family (1-4 Units):Site-Built, Single Family (1-4 "
+            "Units):Manufactured, Multifamily:Site-Built, Multifamily:"
+            "Manufactured | categorical | site-built single-family dominates "
+            "at ~94%; manufactured single-family ~5-6%; multifamily below "
+            "0.5%. Near-constant across the window. |"
+        ),
+        (
+            f"| `derived_race` | text categorical including explicit `Race "
+            f"Not Available` bucket | categorical with disclosure | 2024 "
+            f"`Race Not Available` share {race_not_avail * 100:.1f}%. Any "
+            "disparity metric must publish this share alongside. |"
+        ),
+        (
+            "| `derived_ethnicity` | text categorical including explicit "
+            "`Ethnicity Not Available` bucket | categorical with disclosure "
+            "| same disclosure requirement as `derived_race`. |"
+        ),
+        (
+            f"| `derived_sex` | text categorical: Male, Female, Joint, Sex "
+            f"Not Available, Sex Not Applicable | categorical with "
+            f"disclosure | 2024 `Sex Not Available` share "
+            f"{sex_not_avail * 100:.1f}%. Joint applicants are a large "
+            "cohort and single-applicant analysis loses them. |"
+        ),
+    ]
+
+    return "\n".join(
+        [
+            DICT_BEGIN,
+            f"<!-- generated by notebooks/02-hmda-distributions-and-demographics.ipynb on {run_date} -->",
+            "",
+            "### HMDA LAR field notes from EDA-02 (distributions and demographics)",
+            "",
+            "Supplements the field-level table above (written by EDA-01). "
+            "Each row here documents an encoding, treatment rule, or "
+            "downstream filter that EDA-02 surfaced. Cross-references the "
+            "metric-definition block in `/docs/methodology.md`.",
+            "",
+            "\n".join(rows),
+            "",
+            DICT_END,
+        ]
+    )
+
+
 def _build_methodology_block(run_date: str) -> str:
     return "\n".join(
         [
@@ -274,11 +412,12 @@ def persist_findings(
     syb_outcome_df: pd.DataFrame,
     years: list[int],
     repo_root: Path,
-) -> tuple[Path, Path]:
-    """Write DQ notes + methodology metric block. Returns the two paths written."""
+) -> tuple[Path, Path, Path]:
+    """Write DQ notes + methodology + data-dictionary blocks. Returns the three paths written."""
     run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     dq_path = repo_root / "docs" / "data-quality-notes.md"
     meth_path = repo_root / "docs" / "methodology.md"
+    dict_path = repo_root / "docs" / "data-dictionary.md"
 
     dq_block = _build_dq_block(
         action_share=action_share,
@@ -300,6 +439,14 @@ def persist_findings(
         run_date=run_date,
     )
     meth_block = _build_methodology_block(run_date)
+    dict_block = _build_dict_block(
+        loan_amount_df=loan_amount_df,
+        income_df=income_df,
+        ltv_df=ltv_df,
+        race_share=race_share,
+        sex_share=sex_share,
+        run_date=run_date,
+    )
 
     dq_begin = f"<!-- BEGIN:eda-02-{run_date} -->"
     dq_end = f"<!-- END:eda-02-{run_date} -->"
@@ -309,4 +456,7 @@ def persist_findings(
     meth_text = meth_path.read_text() if meth_path.exists() else "# Methodology\n"
     meth_path.write_text(_splice_block(meth_text, METHOD_BEGIN, METHOD_END, meth_block))
 
-    return dq_path, meth_path
+    dict_text = dict_path.read_text() if dict_path.exists() else "# Data Dictionary\n"
+    dict_path.write_text(_splice_block(dict_text, DICT_BEGIN, DICT_END, dict_block))
+
+    return dq_path, meth_path, dict_path

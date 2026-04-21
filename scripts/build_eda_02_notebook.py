@@ -64,7 +64,7 @@ CELLS: list[dict] = [
         python scripts/build_staging_hmda.py
         ```
 
-        Findings with downstream decision implications are persisted to `/docs/data-quality-notes.md` and metric definitions to `/docs/methodology.md` via `scripts/eda_02_docs.py`. The notebook invokes the helper in a single call at the bottom.
+        Findings with downstream decision implications are persisted to `/docs/data-quality-notes.md`, metric definitions to `/docs/methodology.md`, and field-level observations to `/docs/data-dictionary.md` via `scripts/eda_02_docs.py`. The notebook invokes the helper in a single call at the bottom.
         """
     ),
     code(
@@ -920,12 +920,12 @@ CELLS: list[dict] = [
         """
         ## Persist findings to /docs/
 
-        One-line invocation of `scripts/eda_02_docs.py`. The helper idempotently replaces the delimited blocks in `/docs/data-quality-notes.md` (dated EDA-02 block) and `/docs/methodology.md` (metric-definition block for M3 dashboard surfaces).
+        One-line invocation of `scripts/eda_02_docs.py`. The helper idempotently replaces the delimited blocks in `/docs/data-quality-notes.md` (dated EDA-02 block), `/docs/methodology.md` (metric-definition block for M3 dashboard surfaces), and `/docs/data-dictionary.md` (EDA-02 field-level encoding notes).
         """
     ),
     code(
         """
-        dq_path, meth_path = persist_findings(
+        dq_path, meth_path, dict_path = persist_findings(
             action_share=action_share,
             loan_purpose_share=loan_purpose_share,
             loan_amount_df=loan_amount_df,
@@ -946,6 +946,7 @@ CELLS: list[dict] = [
         )
         print(f"updated {dq_path.relative_to(REPO_ROOT)}")
         print(f"updated {meth_path.relative_to(REPO_ROOT)}")
+        print(f"updated {dict_path.relative_to(REPO_ROOT)}")
         """
     ),
     code(
